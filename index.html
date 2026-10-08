@@ -6,8 +6,9 @@
     <title>OpSec Media Studio — Держспецзв'язок</title>
     
     <!-- Шрифти Google Fonts & e-Ukraine fallback -->
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
+    <!-- link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" -->
+    <!-- Примусове передзавантаження шрифту для Canvas -->
+    <link rel="preload" href="fonts/e-Ukraine-Head-Bold.otf" as="font" type="font/otf" crossorigin>    
     <!-- Локальний AI (TensorFlow.js + BlazeFace) -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4.1646425229/face_detection.js"></script>
     <!-- JSZip для пакетного експорту -->
@@ -1482,6 +1483,18 @@ let mpFaceDetector = null;
                     }, 'image/webp', 0.85);
                 };
                 img.src = url;
+            });
+        }
+        // Очікування завантаження шрифтів для Canvas
+        if (document.fonts) {
+            // 1. Примусово завантажуємо e-Ukraine-Head
+            document.fonts.load("700 60px 'e-Ukraine-Head'").then(() => {
+                renderFinalComposition();
+            });
+
+            // 2. Перемальовуємо полотно, коли ВСІ шрифти сторінки завантажені
+            document.fonts.ready.then(() => {
+                renderFinalComposition();
             });
         }
     </script>
