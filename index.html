@@ -1111,22 +1111,24 @@ let mpFaceDetector = null;
 
                 // Застосування маскування
                 if (detectedFaces.length === 0) {
-                    alert('Облич не виявлено. Спробуйте виділити область вручну пензлем або еліпсом.');
-                } else {
-                    detectedFaces.forEach(f => {
-                        const px = f.w * 0.25;
-                        const py = f.h * 0.3;
-                        applyEffectToMaskCanvas(
-                            Math.max(0, f.x - px),
-                            Math.max(0, f.y - py * 0.8),
-                            Math.min(maskCanvas.width - f.x + px, f.w + px * 2),
-                            Math.min(maskCanvas.height - f.y + py, f.h + py * 2),
-                            'ellipse'
-                        );
-                    });
-                    pushHistory();
-                    renderFinalComposition();
-                }
+                            alert('Облич не виявлено. Спробуйте виділити область вручну пензлем або еліпсом.');
+                        } else {
+                            detectedFaces.forEach(f => {
+                                // Анатомічні пропорції всієї голови (волосся, каска, вуха, підборіддя):
+                                const padX = f.w * 0.25;       // +25% по боках (вуха та скроні)
+                                const padTop = f.h * 0.60;     // +60% вгору (лоб, верхівка черепа, волосся, головний убір)
+                                const padBottom = f.h * 0.35;  // +35% вниз (щелепа, підборіддя)
+
+                                const headX = Math.max(0, f.x - padX);
+                                const headY = Math.max(0, f.y - padTop);
+                                const headW = Math.min(maskCanvas.width - headX, f.w + padX * 2);
+                                const headH = Math.min(maskCanvas.height - headY, f.h + padTop + padBottom);
+
+                                applyEffectToMaskCanvas(headX, headY, headW, headH, 'ellipse');
+                            });
+                            pushHistory();
+                            renderFinalComposition();
+                        }
             } catch (err) {
                 console.error(err);
                 alert('Помилка AI: ' + err.message);
