@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Локальний AI (TensorFlow.js + BlazeFace) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/tracking-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/data/face-min.js"></script>
     <!-- JSZip для пакетного експорту -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
@@ -1054,47 +1054,58 @@
             try {
                 let detectedFaces = [];
 
+                // 1. Апаратний детектор браузера (якщо підтримується системою)
                 if ('FaceDetector' in window) {
                     try {
                         const fd = new window.FaceDetector({ fastMode: false, maxDetectedFaces: 30 });
                         const faces = await fd.detect(maskCanvas);
                         if (faces && faces.length > 0) {
-                            detectedFaces = faces.map(f => ({ x: f.boundingBox.x, y: f.boundingBox.y, w: f.boundingBox.width, h: f.boundingBox.height }));
+                            detectedFaces = faces.map(f => ({ 
+                                x: f.boundingBox.x, 
+                                y: f.boundingBox.y, 
+                                w: f.boundingBox.width, 
+                                h: f.boundingBox.height 
+                            }));
                         }
-                    } catch (e) { console.warn('Native FaceDetector error:', e); }
+                    } catch (e) { console.warn('Native FaceDetector:', e); }
                 }
 
-                if (detectedFaces.length === 0 && window.blazeface) {
-                    if (!blazeModel) {
-                        // Запобігаємо блокуванню CORS на локальному диску
-                        if (location.protocol === 'file:') {
-                            throw new Error('Браузер блокує завантаження AI-моделі через пряме відкриття файлу (file://). Запустіть додаток через локальний веб-сервер (VS Code Live Server, "python -m http.server" або розмістіть на сервері/GitHub Pages).');
-                        }
-                        
-                        // Спроба завантаження моделі
-                        try {
-                            blazeModel = await window.blazeface.load({
-                                modelUrl: 'https://storage.googleapis.com/tfhub-tfjs-modules/tensorflow/tfjs-model/blazeface/1/default/1/model.json'
-                            });
-                        } catch (e) {
-                            // Резервна спроба завантаження за стандартним маршрутом
-                            blazeModel = await window.blazeface.load();
-                        }
+                // 2. Автономний вбудований детектор (100% офлайн, без мережевих запитів fetch)
+                if (detectedFaces.length === 0 && typeof tracking !== 'undefined') {
+                    const maxDim = 800; // Оптимізація швидкості для великих фото
+                    let scale = 1;
+                    let dw = maskCanvas.width, dh = maskCanvas.height;
+
+                    if (dw > maxDim || dh > maxDim) {
+                        scale = maxDim / Math.max(dw, dh);
+                        dw = Math.round(dw * scale);
+                        dh = Math.round(dh * scale);
                     }
 
-                    const predictions = await blazeModel.estimateFaces(maskCanvas, false);
-                    if (predictions && predictions.length > 0) {
-                        detectedFaces = predictions.map(p => ({
-                            x: p.topLeft[0],
-                            y: p.topLeft[1],
-                            w: p.bottomRight[0] - p.topLeft[0],
-                            h: p.bottomRight[1] - p.topLeft[1]
+                    const tempC = document.createElement('canvas');
+                    tempC.width = dw; tempC.height = dh;
+                    const tCtx = tempC.getContext('2d');
+                    tCtx.drawImage(maskCanvas, 0, 0, dw, dh);
+                    const imgData = tCtx.getImageData(0, 0, dw, dh);
+
+                    const tracker = new tracking.ObjectTracker('face');
+                    tracker.setInitialScale(4);
+                    tracker.setStepSize(2);
+                    tracker.setEdgesDensity(0.1);
+
+                    const results = tracker.track(imgData.data, dw, dh);
+                    if (results && results.length > 0) {
+                        detectedFaces = results.map(r => ({
+                            x: Math.round(r.x / scale),
+                            y: Math.round(r.y / scale),
+                            w: Math.round(r.width / scale),
+                            h: Math.round(r.height / scale)
                         }));
                     }
                 }
 
                 if (detectedFaces.length === 0) {
-                    alert('Облич не виявлено. Виділіть область вручну.');
+                    alert('Облич не виявлено. Виділіть область вручну пензлем або еліпсом.');
                 } else {
                     detectedFaces.forEach(f => {
                         const px = f.w * 0.25;
@@ -1111,7 +1122,7 @@
                     renderFinalComposition();
                 }
             } catch (err) {
-                alert('Помилка AI: ' + err.message);
+                alert('Помилка детектора: ' + err.message);
             } finally {
                 aiFaceBtn.innerHTML = originalText;
                 aiFaceBtn.disabled = false;
