@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpSec Media Studio — Держспецзв'язок</title>
+    
+    <!-- Шрифти Google Fonts & e-Ukraine fallback -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Локальний AI (TensorFlow.js + BlazeFace) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
+    <!-- JSZip для пакетного експорту -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        @font-face {
+            font-family: 'e-Ukraine';
+            src: url('fonts/e-Ukraine-Regular.otf') format('opentype'),
+                 url('fonts/e-Ukraine-Regular.ttf') format('truetype'),
+                 url('fonts/e-Ukraine-Regular.woff2') format('woff2');
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: 'e-Ukraine-Head';
+            src: url('fonts/e-Ukraine-Head-Bold.otf') format('opentype'),
+                 url('fonts/e-Ukraine-Head-Bold.ttf') format('truetype'),
+                 url('fonts/e-Ukraine-Head-Bold.woff2') format('woff2');
+            font-weight: 700;
+        }
+
+        :root {
+            --bg: #0b1120;
+            --panel: #1e293b;
+            --panel-sub: #0f172a;
+            --primary: #005BBB;
+            --primary-hover: #004494;
+            --accent: #ffd861;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --danger: #ef4444;
+            --success: #10b981;
+            --ai-color: #8b5cf6;
+            --ai-hover: #7c3aed;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'e-Ukraine', 'Montserrat', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            padding: 0.6rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            z-index: 20;
+        }
+
+        .logo-box { display: flex; align-items: center; gap: 0.75rem; }
+        .logo-title { font-family: 'e-Ukraine-Head', 'Montserrat', sans-serif; font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem; }
+        .badge-safe {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border: 1px solid var(--success);
+            font-size: 0.68rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .main-tabs { display: flex; background: var(--panel-sub); border-radius: 8px; padding: 3px; border: 1px solid var(--border); }
+        .tab-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 0.45rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .tab-btn.active { background: var(--primary); color: white; }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            height: calc(100vh - 120px);
+        }
+
+        .sidebar {
+            width: 380px;
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        .mode-nav {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel-sub);
+        }
+        .mode-nav-btn {
+            flex: 1;
+            padding: 0.75rem 0.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .mode-nav-btn.active {
+            color: #fff;
+            border-bottom-color: var(--primary);
+            background: rgba(0, 91, 187, 0.1);
+        }
+
+        .sidebar-content { padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+
+        .section-title {
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #38bdf8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.35rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-card {
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .btn-group { display: flex; flex-wrap: wrap; gap: 4px; background: #0b1120; padding: 3px; border-radius: 6px; border: 1px solid var(--border); }
+        button, .file-btn, select, input[type="text"], textarea, input[type="number"] {
+            background: #0b1120;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-family: inherit;
+            outline: none;
+        }
+        button { cursor: pointer; transition: all 0.15s; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; }
+        button:hover { background: rgba(255, 255, 255, 0.08); border-color: #64748b; }
+        button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+        
+        .btn-ai { background: var(--ai-color); border-color: var(--ai-color); color: white; width: 100%; padding: 0.6rem; font-size: 0.85rem; }
+        .btn-ai:hover { background: var(--ai-hover); }
+
+        .btn-compare { background: #334155; border-color: #475569; width: 100%; font-size: 0.8rem; padding: 0.5rem; }
+        .btn-compare:active { background: #eab308; color: #000; border-color: #eab308; }
+
+        .range-wrap { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
+        .range-wrap span { min-width: 45px; color: var(--text-muted); }
+        input[type="range"] { flex: 1; accent-color: var(--primary); cursor: pointer; }
+
+        /* Прев'ю зона полотна */
+        .preview-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #050811;
+            background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+            background-size: 20px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-holder {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            position: relative;
+            overflow: auto;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.8);
+            border-radius: 4px;
+            overflow: hidden;
+            display: none;
+            background: #000;
+        }
+
+        #imageCanvas { display: block; max-width: 100%; max-height: calc(100vh - 220px); object-fit: contain; cursor: crosshair; }
+        #overlayCanvas { position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%; }
+
+        /* Дропзона */
+        .drop-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            max-width: 520px;
+            width: 90%;
+            background: var(--panel);
+            cursor: pointer;
+            margin: auto;
+            transition: all 0.2s;
+        }
+        .drop-area.dragover { border-color: var(--primary); background: rgba(0, 91, 187, 0.15); }
+        .drop-area h2 { font-size: 1.25rem; margin-bottom: 0.4rem; font-family: 'e-Ukraine-Head', sans-serif; }
+        .drop-area p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 1.2rem; }
+        #fileInput, #changeFileInput, #batchFileInput { display: none; }
+
+        /* Банер інспектора EXIF */
+        .exif-banner {
+            background: #1e293b;
+            border-bottom: 1px solid var(--border);
+            padding: 0.45rem 1rem;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--text-muted);
+            z-index: 5;
+        }
+        .exif-pill { font-family: monospace; color: #38bdf8; font-weight: 600; }
+        .exif-warn { color: #f59e0b; font-weight: 600; display: flex; align-items: center; gap: 0.35rem; }
+
+        /* Нижня плашка експорту */
+        .export-bar {
+            background: var(--panel-sub);
+            border-top: 1px solid var(--border);
+            padding: 0.5rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            font-size: 0.8rem;
+            z-index: 20;
+        }
+        .export-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+        .btn-download { background: var(--success); color: white; font-weight: 700; border: none; padding: 0.5rem 1rem; }
+        .btn-download:hover { background: #059669; }
+        .btn-action { background: #334155; border-color: #475569; }
+
+        /* Пакетний режим та Довідник */
+        .full-view-panel { display: none; width: 100%; max-width: 880px; margin: 2rem auto; padding: 0 1rem; }
+        .card { background: var(--panel); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border); }
+        .batch-files-list { max-height: 250px; overflow-y: auto; margin: 1rem 0; display: flex; flex-direction: column; gap: 0.4rem; }
+        .batch-item { display: flex; justify-content: space-between; align-items: center; background: #0b1120; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8rem; border: 1px solid var(--border); }
+
+        .memo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .memo-box { background: #0b1120; padding: 1rem; border-radius: 8px; border-left: 3px solid var(--primary); }
+        .memo-box h4 { font-size: 0.9rem; margin-bottom: 0.4rem; color: #fff; }
+        .memo-box p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-box">
+            <!-- Вбудований SVG Держспецзв'язку -->
+            <svg class="logo-svg" width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M72.127 39.3279C73.7143 42.5025 74.5961 46.2062 74.5961 50.0863C74.5961 53.9664 73.7143 57.4937 72.127 60.8447L98.9347 74.6013V25.5713L72.127 39.3279Z" fill="white"/>
+                <path d="M50.081 74.6013C63.6202 74.6013 74.596 63.6255 74.596 50.0863C74.596 36.547 63.6202 25.5713 50.081 25.5713C36.5417 25.5713 25.566 36.547 25.566 50.0863C25.566 63.6255 36.5417 74.6013 50.081 74.6013Z" fill="#1C388F"/>
+                <path d="M50.081 74.432C46.2009 74.432 42.4972 73.5502 39.3226 71.9629L25.566 98.947H74.596L60.8393 72.1393C57.4884 73.7266 53.961 74.432 50.081 74.432Z" fill="white"/>
+                <path d="M50.081 25.5736C53.961 25.5736 57.4884 26.4554 60.663 28.0427L74.4196 1.05859H25.566L39.3226 28.0427C42.4972 26.4554 46.2009 25.5736 50.081 25.5736Z" fill="white"/>
+                <path d="M25.5641 50.0863C25.5641 46.2062 26.4459 42.6789 28.0332 39.3279L1.04907 25.5713V74.6013L28.0332 60.8447C26.4459 57.4937 25.5641 53.79 25.5641 50.0863Z" fill="white"/>
+                <path d="M100 76.1905V23.8095L72.4868 37.9189C72.4868 37.9189 72.4868 37.7425 72.3104 37.7425L86.5961 23.4568L68.7831 27.866L86.9489 9.70018L84.3034 20.8113L86.2434 21.3404L90.2998 4.93827L74.0741 8.81834L74.6032 10.7584L85.7143 8.11287L64.5503 29.1005C63.6684 28.5714 62.963 28.0423 62.0811 27.5132L76.1905 0H23.8095L37.9189 27.5132C37.037 28.0423 36.1552 28.5714 35.4497 29.1005L14.4621 8.11287L25.5732 10.7584L25.9259 8.81834L9.70018 4.93827L13.5802 21.164L15.5203 20.6349L12.8748 9.70018L31.0406 27.866L13.4039 23.4568L27.6896 37.7425V37.9189L0 23.8095V76.1905L27.5132 62.0811V62.2575L13.2275 76.5432L31.0406 72.134L12.8748 90.2998L15.5203 79.1887L13.5802 78.6596L9.52381 95.0617L25.9259 91.0053L25.3968 89.0653L14.2857 91.7108L35.2734 70.8995C36.1552 71.4286 36.8607 71.9577 37.7425 72.4868L23.6332 100H76.0141L61.9048 72.4868C62.7866 71.9577 63.6684 71.4286 64.5503 70.8995L85.3616 91.7108L74.2504 89.0653L74.0741 91.1817L90.4762 95.2381L86.4198 78.836L84.4797 79.3651L87.1252 90.4762L68.7831 72.134L86.5961 76.5432L72.3104 62.2575C72.3104 62.2575 72.3104 62.0811 72.4868 62.0811L100 76.1905ZM97.8836 27.1605V72.6631L73.3686 60.1411C74.7795 56.9665 75.485 53.6155 75.485 49.9118C75.485 46.2081 74.7795 42.8571 73.3686 39.6825L97.8836 27.1605ZM56.0847 31.746C64.0212 34.3915 69.3122 41.6226 69.3122 50.0882C69.3122 59.0829 63.1393 66.843 54.4974 68.7831H54.1446L49.9118 73.0159L45.8554 68.7831H45.5026C36.8607 66.6667 30.6878 59.0829 30.6878 50.0882C30.6878 41.7989 35.9788 34.3915 43.9153 31.746L44.6208 30.3351L43.3862 29.806C34.5679 32.6279 28.5714 40.9171 28.5714 50.0882C28.5714 59.9647 35.097 68.4303 44.6208 70.7231L47.2663 73.3686C35.6261 71.9577 26.455 62.0811 26.455 50.0882C26.455 37.2134 37.037 26.6314 49.9118 26.6314C62.7866 26.6314 73.3686 37.2134 73.3686 50.0882C73.3686 62.0811 64.1975 72.134 52.5573 73.3686L55.2028 70.7231C64.7266 68.254 71.2522 59.7884 71.2522 50.0882C71.2522 40.7407 65.2557 32.6279 56.4374 29.806L55.2028 30.3351L56.0847 31.746ZM79.8942 27.1605L71.2522 35.8025C69.8413 33.8624 68.254 31.9224 66.4903 30.5115L79.8942 27.1605ZM27.1605 2.1164H72.6631L60.1411 26.6314C56.9665 25.2205 53.6155 24.515 49.9118 24.515C46.2081 24.515 42.8571 25.2205 39.6825 26.6314L27.1605 2.1164ZM20.1058 27.1605L33.6861 30.5115C31.746 32.0988 30.1587 33.8624 28.9242 35.9788L20.1058 27.1605ZM2.1164 72.8395V27.1605L26.8078 39.6825C25.3968 42.8571 24.6914 46.2081 24.6914 49.9118C24.6914 53.4392 25.3968 56.9665 26.8078 60.1411L2.1164 72.8395ZM20.1058 72.8395L28.7478 64.1975C30.1587 66.1376 31.746 68.0776 33.5097 69.6649L20.1058 72.8395ZM72.8395 97.8836H27.1605L39.6825 73.3686C42.8571 74.7795 46.3845 75.485 49.9118 75.485C53.6155 75.485 56.9665 74.7795 60.1411 73.3686L72.8395 97.8836ZM79.8942 72.8395L66.4903 69.4885C68.254 67.9012 69.8413 66.1376 71.2522 64.1975L79.8942 72.8395Z" fill="#FFD861"/>
+                <path d="M49.0306 68.6048C47.0906 67.1939 45.6796 65.0775 45.3269 62.6083H39.1541V36.1533C42.505 37.7406 44.7978 41.4443 44.9742 45.148L46.0324 52.5554H45.5033C44.4451 52.5554 43.5632 53.6136 43.5632 54.4955C43.5632 55.3773 44.2687 56.0828 45.1505 56.2591L46.2087 56.6119C47.9724 53.0845 49.0306 49.7336 49.0306 46.3826C49.0306 43.3844 48.6779 40.3861 48.5015 37.2115C48.5015 35.8006 49.0306 34.566 49.9124 33.5078C50.7943 34.566 51.3234 35.8006 51.3234 37.2115C51.3234 40.3861 50.7943 43.3844 50.7943 46.3826C50.7943 49.7336 51.8525 53.2609 53.6161 56.6119L54.6743 56.2591C55.5562 56.0828 56.2616 55.3773 56.2616 54.4955C56.2616 53.6136 55.3798 52.5554 54.3216 52.5554H53.7925L54.6743 45.148C55.2034 41.4443 57.3198 37.7406 60.6708 36.1533V62.6083H54.498C53.9689 65.0775 52.7343 67.3703 50.7943 68.6048C50.2652 68.9576 49.9124 69.3103 49.7361 69.8394C49.7361 69.3103 49.3833 68.9576 49.0306 68.6048ZM41.9759 53.2609C42.3287 52.2027 43.0341 51.3209 43.916 50.7918L43.2105 44.6189C43.0341 42.6789 42.1523 40.9152 40.9177 39.6807V53.2609H41.9759ZM44.9742 60.4919C44.9742 59.6101 45.1505 58.7283 45.3269 57.8464L44.4451 57.6701C43.2105 57.141 42.3287 56.2591 41.7996 55.0246H40.7414V60.4919H44.9742ZM49.0306 60.4919C49.0306 59.4337 48.1488 58.3755 47.0906 58.3755C46.9142 59.081 46.7378 59.7865 46.7378 60.4919H49.0306ZM49.0306 62.432H46.9142C47.2669 63.8429 47.9724 65.0775 49.0306 66.312V62.432ZM52.0288 56.7882C51.147 55.3773 50.4415 53.79 49.9124 52.2027C49.3833 53.79 48.8542 55.3773 47.9724 56.7882C48.8542 56.9646 49.5597 57.4937 49.9124 58.0228C50.6179 57.3173 51.147 56.7882 52.0288 56.7882ZM53.2634 60.4919C53.2634 59.7865 53.087 58.9046 52.9107 58.3755C51.8525 58.3755 50.9706 59.4337 50.9706 60.4919H53.2634ZM53.087 62.432H50.9706V66.312C52.0288 65.2538 52.7343 63.8429 53.087 62.432ZM59.2599 60.4919V55.0246H58.2017C57.8489 56.2591 56.7907 57.141 55.5562 57.6701L54.6743 57.8464C54.8507 58.7283 55.0271 59.6101 55.0271 60.4919H59.2599ZM59.2599 53.2609V39.6807C58.2017 41.0916 57.1435 42.8553 57.1435 44.6189L56.438 50.7918C57.3198 51.3209 58.0253 52.2027 58.378 53.2609H59.2599Z" fill="#FFD861"/>
+            </svg>
+            <div class="logo-title">OpSec Studio</div>
+            <span class="badge-safe">100% Offline AI</span>
+        </div>
+
+        <div class="main-tabs">
+            <button class="tab-btn active" id="tabStudioBtn">🎨 Студія & SMM</button>
+            <button class="tab-btn" id="tabBatchBtn">📦 Пакетне очищення</button>
+            <button class="tab-btn" id="tabMemoBtn">ℹ️ Пам'ятка OpSec</button>
+        </div>
+    </header>
+
+    <!-- ОСНОВНА СТУДІЯ -->
+    <div class="editor-container" id="studioView">
+        <!-- БІЧНА ПАНЕЛЬ -->
+        <aside class="sidebar" id="editorSidebar" style="display: none;">
+            <div class="mode-nav">
+                <button class="mode-nav-btn active" id="modeOpsecBtn">🛡️ Маскування</button>
+                <button class="mode-nav-btn" id="modeBrandBtn">🎨 Макет & Текст</button>
+            </div>
+
+            <div class="sidebar-content">
+                <!-- СЕКЦІЯ 1: OPSEC МАСКУВАННЯ -->
+                <div id="opsecPanel">
+                    <div class="control-card">
+                        <button class="btn-ai" id="aiFaceBtn" title="Знайти всі обличчя через нейромережу локально">🤖 Авто-маскування облич (AI)</button>
+                        <button class="btn-compare" id="compareBtn" title="Затисніть для перегляду оригіналу">👁️ Утримуйте: Перегляд «До / Після»</button>
+                    </div>
+
+                    <div class="section-title">Тип цензурування</div>
+                    <div class="control-card">
+                        <div class="btn-group">
+                            <button class="tool-btn active" data-mode="blur">🌫️ Розмиття</button>
+                            <button class="tool-btn" data-mode="pixelate">🔲 Пікселі</button>
+                            <button class="tool-btn" data-mode="tape">⬛ Стрічка</button>
+                            <button class="tool-btn" data-mode="noise">🎲 Anti-AI Шум</button>
+                            <button class="tool-btn" data-mode="colorfill">🎨 Заливка</button>
+                            <button class="tool-btn" data-mode="stamp">🏷️ Штамп</button>
+                        </div>
+
+                        <input type="color" id="fillColorPicker" value="#000000" style="display:none; width:100%; height:30px; cursor:pointer;">
+
+                        <select id="stampSelect" style="display: none;">
+                            <option value="ЦЕНЗУРА">⬛ ЦЕНЗУРА</option>
+                            <option value="OPSEC">🛡️ OPSEC</option>
+                            <option value="ДСП">🔒 ДСП (Службове)</option>
+                            <option value="🇺🇦">🇺🇦 Прапор</option>
+                            <option value="🔱">🔱 Тризуб</option>
+                            <option value="😎">😎 Сонцезахисні окуляри</option>
+                            <option value="🐱">🐱 Котик</option>
+                        </select>
+                    </div>
+
+                    <div class="section-title">Форма виділення</div>
+                    <div class="control-card">
+                        <div class="btn-group" id="shapeGroup">
+                            <button class="shape-btn" data-shape="rect">▭ Прямокутник</button>
+                            <button class="shape-btn active" data-shape="ellipse">⬭ Овал / Еліпс</button>
+                            <button class="shape-btn" data-shape="brush">🖌️ Пензель</button>
+                        </div>
+                        <div class="range-wrap" id="strengthControl">
+                            <span id="strengthLabel">Сила:</span>
+                            <input type="range" id="strengthSlider" min="5" max="60" value="25">
+                            <span id="strengthVal">25</span>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-action" style="flex:1;" id="undoBtn">↩️ Скасувати</button>
+                            <button class="btn-action" style="flex:1;" id="resetBtn">🔄 Скинути</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- СЕКЦІЯ 2: МАКЕТ, БРЕНДУВАННЯ ТА SMM -->
+                <div id="brandPanel" class="hidden">
+                    <div class="section-title">Формат публікації</div>
+                    <div class="control-card">
+                        <select id="templateType">
+                            <option value="original">Оригінальний (без кадрування)</option>
+                            <option value="social" selected>Telegram / FB (Квадрат 1:1)</option>
+                            <option value="insta">Instagram (Вертикальний 4:5)</option>
+                            <option value="twitter">Twitter / YouTube (Горизонтальний 16:9)</option>
+                            <option value="web">Сайт ДССЗЗІ (1600×1200)</option>
+                        </select>
+                    </div>
+
+                    <div class="section-title">Кадрування & Зум фону</div>
+                    <div class="control-card">
+                        <div class="range-wrap"><span>Zoom</span><input type="range" id="bgScale" min="70" max="250" value="100"></div>
+                        <div class="range-wrap"><span>↔ X</span><input type="range" id="bgX" min="-800" max="800" value="0"></div>
+                        <div class="range-wrap"><span>↕ Y</span><input type="range" id="bgY" min="-800" max="800" value="0"></div>
+                        <button class="btn-action" id="resetBgBtn" style="font-size: 0.72rem; padding: 0.25rem;">Скинути позицію фону</button>
+                    </div>
+
+                    <div class="section-title">Офіційна айдентика</div>
+                    <div class="control-card">
+                        <label style="font-size: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span>Накласти герб ДССЗЗІ:</span>
+                            <input type="checkbox" id="showLogoCheckbox" checked style="accent-color: var(--primary);">
+                        </label>
+                        <div class="range-wrap"><span>Розмір</span><input type="range" id="logoScale" min="40" max="200" value="90"></div>
+                        <select id="logoPosition">
+                            <option value="tr" selected>Верхній правий кут</option>
+                            <option value="tl">Верхній лівий кут</option>
+                            <option value="br">Нижній правий кут</option>
+                        </select>
+                    </div>
+
+                    <div class="section-title">Тінь та читабельність</div>
+                    <div class="control-card">
+                        <div class="range-wrap"><span>Тінь</span><input type="range" id="overlayOpacity" min="0" max="100" value="70"></div>
+                    </div>
+
+                    <div class="section-title">Текстовий блок (e-Ukraine)</div>
+                    <div class="control-card">
+                        <label style="font-size: 0.75rem;">Заголовок:</label>
+                        <textarea id="mainText" rows="2" placeholder="Введіть заголовок новини...">ЗАТВЕРДЖЕНО ВИМОГИ ДО ЗАХИСТУ ІНФОРМАЦІЇ</textarea>
+                        
+                        <label style="font-size: 0.75rem;">Підпис:</label>
+                        <textarea id="subText" rows="2" placeholder="Офіційний підпис...">Державна служба спеціального зв’язку та захисту інформації України</textarea>
+
+                        <div class="range-wrap"><span>Шрифт</span><input type="range" id="fontSizeTitle" min="20" max="100" value="56"></div>
+                    </div>
+                </div>
+
+                <label class="file-btn" style="text-align: center; cursor: pointer;">
+                    📂 Завантажити інше фото
+                    <input type="file" id="changeFileInput" accept="image/*">
+                </label>
+            </div>
+        </aside>
+
+        <!-- ПРЕВ'Ю ЗОНА -->
+        <main class="preview-area">
+            <!-- EXIF Інспектор (Випливає зверху) -->
+            <div class="exif-banner" id="exifBanner" style="display: none;">
+                <div id="exifStatus">Аналіз метаданих...</div>
+                <div class="exif-pill" id="exifResolution">0 x 0 px</div>
+            </div>
+
+            <div class="canvas-holder">
+                <div class="drop-area" id="dropArea">
+                    <div style="font-size: 3rem; margin-bottom: 0.5rem;">🛡️</div>
+                    <h2>OpSec & SMM Media Studio</h2>
+                    <p>Перетягніть фото або натисніть <b>Ctrl + V</b> для швидкої вставки скріншота.<br>Автоматичне вилучення GPS/камери та повна локальна обробка.</p>
+                    <label class="btn-download" style="display: inline-block; cursor: pointer; border-radius: 6px;">
+                        Обрати фотографію
+                        <input type="file" id="fileInput" accept="image/*">
+                    </label>
+                </div>
+
+                <div class="canvas-wrapper" id="canvasWrapper">
+                    <canvas id="imageCanvas"></canvas>
+                    <canvas id="overlayCanvas"></canvas>
+                </div>
+            </div>
+
+            <!-- НИЖНЯ ПАНЕЛЬ ЕКСПОРТУ -->
+            <div class="export-bar" id="exportBar" style="display: none;">
+                <div class="export-controls">
+                    <span>Формат:</span>
+                    <select id="exportFormat">
+                        <option value="image/webp" selected>WebP (Рекомендовано)</option>
+                        <option value="image/jpeg">JPEG</option>
+                        <option value="image/png">PNG</option>
+                    </select>
+
+                    <span>Якість:</span>
+                    <input type="range" id="qualitySlider" min="60" max="100" value="85" style="width: 80px;">
+                    <span id="qualityVal" style="font-family: monospace;">85%</span>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn-action" id="copyClipboardBtn" title="Копіювати в буфер">📋 Скопіювати</button>
+                    <button class="btn-download" id="downloadBtn">💾 Зберегти (Чистий без EXIF)</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ВКЛАДКА 2: ПАКЕТНЕ ОЧИЩЕННЯ -->
+    <div class="full-view-panel" id="batchView">
+        <div class="card">
+            <h2 style="font-family: 'e-Ukraine-Head', sans-serif;">📦 Пакетне стирання метаданих та стиснення</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.35rem;">
+                Масове видалення GPS, серійних номерів камер, ресайз та пакування у ZIP-архів (10–100 фото).
+            </p>
+
+            <div class="drop-area" id="batchDropArea" style="margin: 1.5rem auto; padding: 2rem;">
+                <p style="margin-bottom: 0.75rem;">Перетягніть групу фотографій сюди</p>
+                <label class="btn-download" style="display: inline-block; cursor: pointer; border-radius: 6px;">
+                    Вибрати файли
+                    <input type="file" id="batchFileInput" accept="image/*" multiple>
+                </label>
+            </div>
+
+            <div class="batch-files-list" id="batchFileList"></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    Вибрано файлів: <span id="batchCount" style="color: #fff; font-weight: 700;">0</span>
+                </div>
+                <button class="btn-download" id="batchDownloadBtn" disabled>📦 Обробити й завантажити ZIP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВКЛАДКА 3: ПАМ'ЯТКА OPSEC -->
+    <div class="full-view-panel" id="memoView">
+        <div class="card">
+            <h2 style="font-family: 'e-Ukraine-Head', sans-serif; color: var(--accent);">🛡️ Пам'ятка інформаційної безпеки (OpSec)</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.35rem;">
+                Основні правила підготовки та публікації фотоматеріалів у мережі Інтернет та медіа.
+            </p>
+
+            <div class="memo-grid">
+                <div class="memo-box">
+                    <h4>📍 Геолокація та EXIF</h4>
+                    <p>Смартфони автоматично записують точні координати зйомки в тіло фотографії. Цей додаток на 100% знищує метадані під час експорту через повну перемальовку полотна.</p>
+                </div>
+                <div class="memo-box">
+                    <h4>👤 Обличчя та шеврони</h4>
+                    <p>Обличчя особового складу, патчі підрозділів та нагрудні знаки мають бути замасковані. Використовуйте AI-детектор або ручну стрічку «ЦЕНЗУРА».</p>
+                </div>
+                <div class="memo-box">
+                    <h4>📡 Обладнання зв'язку</h4>
+                    <p>Антени спеціального зв'язку, радіорелейні станції, шильдики техніки, моделі генераторів та кабельні траси не повинні потрапляти у відкритий кадр.</p>
+                </div>
+                <div class="memo-box">
+                    <h4>📑 Документи та екрани</h4>
+                    <p>Ніколи не публікуйте фото, де на фоні видно робочі монітори, карти, таблиці позивних, бойові розпорядження або бланки зі штампами ДСП.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================
+        // 1. ВЕКТОРНИЙ SVG ГЕРБ ДЕРЖСПЕЦЗВ'ЯЗКУ
+        // ========================================================
+        const SSSCIP_SVG_RAW = `<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M72.127 39.3279C73.7143 42.5025 74.5961 46.2062 74.5961 50.0863C74.5961 53.9664 73.7143 57.4937 72.127 60.8447L98.9347 74.6013V25.5713L72.127 39.3279Z" fill="white"/>
+            <path d="M50.081 74.6013C63.6202 74.6013 74.596 63.6255 74.596 50.0863C74.596 36.547 63.6202 25.5713 50.081 25.5713C36.5417 25.5713 25.566 36.547 25.566 50.0863C25.566 63.6255 36.5417 74.6013 50.081 74.6013Z" fill="#1C388F"/>
+            <path d="M50.081 74.432C46.2009 74.432 42.4972 73.5502 39.3226 71.9629L25.566 98.947H74.596L60.8393 72.1393C57.4884 73.7266 53.961 74.432 50.081 74.432Z" fill="white"/>
+            <path d="M50.081 25.5736C53.961 25.5736 57.4884 26.4554 60.663 28.0427L74.4196 1.05859H25.566L39.3226 28.0427C42.4972 26.4554 46.2009 25.5736 50.081 25.5736Z" fill="white"/>
+            <path d="M25.5641 50.0863C25.5641 46.2062 26.4459 42.6789 28.0332 39.3279L1.04907 25.5713V74.6013L28.0332 60.8447C26.4459 57.4937 25.5641 53.79 25.5641 50.0863Z" fill="white"/>
+            <path d="M100 76.1905V23.8095L72.4868 37.9189C72.4868 37.9189 72.4868 37.7425 72.3104 37.7425L86.5961 23.4568L68.7831 27.866L86.9489 9.70018L84.3034 20.8113L86.2434 21.3404L90.2998 4.93827L74.0741 8.81834L74.6032 10.7584L85.7143 8.11287L64.5503 29.1005C63.6684 28.5714 62.963 28.0423 62.0811 27.5132L76.1905 0H23.8095L37.9189 27.5132C37.037 28.0423 36.1552 28.5714 35.4497 29.1005L14.4621 8.11287L25.5732 10.7584L25.9259 8.81834L9.70018 4.93827L13.5802 21.164L15.5203 20.6349L12.8748 9.70018L31.0406 27.866L13.4039 23.4568L27.6896 37.7425V37.9189L0 23.8095V76.1905L27.5132 62.0811V62.2575L13.2275 76.5432L31.0406 72.134L12.8748 90.2998L15.5203 79.1887L13.5802 78.6596L9.52381 95.0617L25.9259 91.0053L25.3968 89.0653L14.2857 91.7108L35.2734 70.8995C36.1552 71.4286 36.8607 71.9577 37.7425 72.4868L23.6332 100H76.0141L61.9048 72.4868C62.7866 71.9577 63.6684 71.4286 64.5503 70.8995L85.3616 91.7108L74.2504 89.0653L74.0741 91.1817L90.4762 95.2381L86.4198 78.836L84.4797 79.3651L87.1252 90.4762L68.7831 72.134L86.5961 76.5432L72.3104 62.2575C72.3104 62.2575 72.3104 62.0811 72.4868 62.0811L100 76.1905ZM97.8836 27.1605V72.6631L73.3686 60.1411C74.7795 56.9665 75.485 53.6155 75.485 49.9118C75.485 46.2081 74.7795 42.8571 73.3686 39.6825L97.8836 27.1605ZM56.0847 31.746C64.0212 34.3915 69.3122 41.6226 69.3122 50.0882C69.3122 59.0829 63.1393 66.843 54.4974 68.7831H54.1446L49.9118 73.0159L45.8554 68.7831H45.5026C36.8607 66.6667 30.6878 59.0829 30.6878 50.0882C30.6878 41.7989 35.9788 34.3915 43.9153 31.746L44.6208 30.3351L43.3862 29.806C34.5679 32.6279 28.5714 40.9171 28.5714 50.0882C28.5714 59.9647 35.097 68.4303 44.6208 70.7231L47.2663 73.3686C35.6261 71.9577 26.455 62.0811 26.455 50.0882C26.455 37.2134 37.037 26.6314 49.9118 26.6314C62.7866 26.6314 73.3686 37.2134 73.3686 50.0882C73.3686 62.0811 64.1975 72.134 52.5573 73.3686L55.2028 70.7231C64.7266 68.254 71.2522 59.7884 71.2522 50.0882C71.2522 40.7407 65.2557 32.6279 56.4374 29.806L55.2028 30.3351L56.0847 31.746ZM79.8942 27.1605L71.2522 35.8025C69.8413 33.8624 68.254 31.9224 66.4903 30.5115L79.8942 27.1605ZM27.1605 2.1164H72.6631L60.1411 26.6314C56.9665 25.2205 53.6155 24.515 49.9118 24.515C46.2081 24.515 42.8571 25.2205 39.6825 26.6314L27.1605 2.1164ZM20.1058 27.1605L33.6861 30.5115C31.746 32.0988 30.1587 33.8624 28.9242 35.9788L20.1058 27.1605ZM2.1164 72.8395V27.1605L26.8078 39.6825C25.3968 42.8571 24.6914 46.2081 24.6914 49.9118C24.6914 53.4392 25.3968 56.9665 26.8078 60.1411L2.1164 72.8395ZM20.1058 72.8395L28.7478 64.1975C30.1587 66.1376 31.746 68.0776 33.5097 69.6649L20.1058 72.8395ZM72.8395 97.8836H27.1605L39.6825 73.3686C42.8571 74.7795 46.3845 75.485 49.9118 75.485C53.6155 75.485 56.9665 74.7795 60.1411 73.3686L72.8395 97.8836ZM79.8942 72.8395L66.4903 69.4885C68.254 67.9012 69.8413 66.1376 71.2522 64.1975L79.8942 72.8395Z" fill="#FFD861"/>
+            <path d="M49.0306 68.6048C47.0906 67.1939 45.6796 65.0775 45.3269 62.6083H39.1541V36.1533C42.505 37.7406 44.7978 41.4443 44.9742 45.148L46.0324 52.5554H45.5033C44.4451 52.5554 43.5632 53.6136 43.5632 54.4955C43.5632 55.3773 44.2687 56.0828 45.1505 56.2591L46.2087 56.6119C47.9724 53.0845 49.0306 49.7336 49.0306 46.3826C49.0306 43.3844 48.6779 40.3861 48.5015 37.2115C48.5015 35.8006 49.0306 34.566 49.9124 33.5078C50.7943 34.566 51.3234 35.8006 51.3234 37.2115C51.3234 40.3861 50.7943 43.3844 50.7943 46.3826C50.7943 49.7336 51.8525 53.2609 53.6161 56.6119L54.6743 56.2591C55.5562 56.0828 56.2616 55.3773 56.2616 54.4955C56.2616 53.6136 55.3798 52.5554 54.3216 52.5554H53.7925L54.6743 45.148C55.2034 41.4443 57.3198 37.7406 60.6708 36.1533V62.6083H54.498C53.9689 65.0775 52.7343 67.3703 50.7943 68.6048C50.2652 68.9576 49.9124 69.3103 49.7361 69.8394C49.7361 69.3103 49.3833 68.9576 49.0306 68.6048ZM41.9759 53.2609C42.3287 52.2027 43.0341 51.3209 43.916 50.7918L43.2105 44.6189C43.0341 42.6789 42.1523 40.9152 40.9177 39.6807V53.2609H41.9759ZM44.9742 60.4919C44.9742 59.6101 45.1505 58.7283 45.3269 57.8464L44.4451 57.6701C43.2105 57.141 42.3287 56.2591 41.7996 55.0246H40.7414V60.4919H44.9742ZM49.0306 60.4919C49.0306 59.4337 48.1488 58.3755 47.0906 58.3755C46.9142 59.081 46.7378 59.7865 46.7378 60.4919H49.0306ZM49.0306 62.432H46.9142C47.2669 63.8429 47.9724 65.0775 49.0306 66.312V62.432ZM52.0288 56.7882C51.147 55.3773 50.4415 53.79 49.9124 52.2027C49.3833 53.79 48.8542 55.3773 47.9724 56.7882C48.8542 56.9646 49.5597 57.4937 49.9124 58.0228C50.6179 57.3173 51.147 56.7882 52.0288 56.7882ZM53.2634 60.4919C53.2634 59.7865 53.087 58.9046 52.9107 58.3755C51.8525 58.3755 50.9706 59.4337 50.9706 60.4919H53.2634ZM53.087 62.432H50.9706V66.312C52.0288 65.2538 52.7343 63.8429 53.087 62.432ZM59.2599 60.4919V55.0246H58.2017C57.8489 56.2591 56.7907 57.141 55.5562 57.6701L54.6743 57.8464C54.8507 58.7283 55.0271 59.6101 55.0271 60.4919H59.2599ZM59.2599 53.2609V39.6807C58.2017 41.0916 57.1435 42.8553 57.1435 44.6189L56.438 50.7918C57.3198 51.3209 58.0253 52.2027 58.378 53.2609H59.2599Z" fill="#FFD861"/>
+        </svg>`;
+
+        const logoImg = new Image();
+        logoImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(SSSCIP_SVG_RAW);
+
+        // ========================================================
+        // 2. СТАН ДОДАТКА ТА ЕЛЕМЕНТИ
+        // ========================================================
+        const studioView = document.getElementById('studioView');
+        const batchView = document.getElementById('batchView');
+        const memoView = document.getElementById('memoView');
+        const editorSidebar = document.getElementById('editorSidebar');
+        const opsecPanel = document.getElementById('opsecPanel');
+        const brandPanel = document.getElementById('brandPanel');
+
+        const tabStudioBtn = document.getElementById('tabStudioBtn');
+        const tabBatchBtn = document.getElementById('tabBatchBtn');
+        const tabMemoBtn = document.getElementById('tabMemoBtn');
+        const modeOpsecBtn = document.getElementById('modeOpsecBtn');
+        const modeBrandBtn = document.getElementById('modeBrandBtn');
+
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const changeFileInput = document.getElementById('changeFileInput');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const canvas = document.getElementById('imageCanvas');
+        const overlay = document.getElementById('overlayCanvas');
+        const exportBar = document.getElementById('exportBar');
+        const exifBanner = document.getElementById('exifBanner');
+        const exifStatus = document.getElementById('exifStatus');
+        const exifResolution = document.getElementById('exifResolution');
+
+        const ctx = canvas.getContext('2d');
+        const oCtx = overlay.getContext('2d');
+
+        // Робочі змінні
+        let originalImage = null;
+        let originalFileName = 'image.jpg';
+        let originalImageData = null; // Для режиму «До / Після»
+        let currentMode = 'blur';
+        let currentShape = 'ellipse';
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let brushPoints = [];
+        let blazeModel = null;
+        let history = []; // Стек змін маскування
+
+        // Полотно для ізольованого маскування фото
+        const maskCanvas = document.createElement('canvas');
+        const mCtx = maskCanvas.getContext('2d');
+
+        // ========================================================
+        // 3. ПЕРЕМИКАННЯ ВКЛАДОК І РЕЖИМІВ
+        // ========================================================
+        function switchMainTab(tab) {
+            tabStudioBtn.classList.toggle('active', tab === 'studio');
+            tabBatchBtn.classList.toggle('active', tab === 'batch');
+            tabMemoBtn.classList.toggle('active', tab === 'memo');
+
+            studioView.style.display = (tab === 'studio') ? 'flex' : 'none';
+            batchView.style.display = (tab === 'batch') ? 'block' : 'none';
+            memoView.style.display = (tab === 'memo') ? 'block' : 'none';
+        }
+
+        tabStudioBtn.addEventListener('click', () => switchMainTab('studio'));
+        tabBatchBtn.addEventListener('click', () => switchMainTab('batch'));
+        tabMemoBtn.addEventListener('click', () => switchMainTab('memo'));
+
+        modeOpsecBtn.addEventListener('click', () => {
+            modeOpsecBtn.classList.add('active');
+            modeBrandBtn.classList.remove('active');
+            opsecPanel.classList.remove('hidden');
+            brandPanel.classList.add('hidden');
+        });
+
+        modeBrandBtn.addEventListener('click', () => {
+            modeBrandBtn.classList.add('active');
+            modeOpsecBtn.classList.remove('active');
+            brandPanel.classList.remove('hidden');
+            opsecPanel.classList.add('hidden');
+            renderFinalComposition();
+        });
+
+        // ========================================================
+        // 4. ЗАВАНТАЖЕННЯ ЗОБРАЖЕННЯ ТА ЛОКАЛЬНИЙ EXIF-ІНСПЕКТОР
+        // ========================================================
+        dropArea.addEventListener('click', () => fileInput.click());
+        dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
+        dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) handleLoadedFile(e.dataTransfer.files[0]);
+        });
+
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length) handleLoadedFile(e.target.files[0]); });
+        changeFileInput.addEventListener('change', (e) => { if (e.target.files.length) handleLoadedFile(e.target.files[0]); });
+
+        window.addEventListener('paste', (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (const item of items) {
+                if (item.type.indexOf('image') === 0) {
+                    const blob = item.getAsFile();
+                    originalFileName = `screenshot_${Date.now()}.png`;
+                    handleLoadedFile(blob);
+                    break;
+                }
+            }
+        });
+
+        async function handleLoadedFile(file) {
+            if (!file.type.startsWith('image/')) return;
+            if (file.name) originalFileName = file.name;
+
+            // Локальна перевірка метаданих (Чистий JS без бібліотек)
+            const arrayBuffer = await file.arrayBuffer();
+            const exifInfo = inspectExifData(arrayBuffer);
+
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+
+            img.onload = () => {
+                originalImage = img;
+
+                maskCanvas.width = img.naturalWidth;
+                maskCanvas.height = img.naturalHeight;
+                mCtx.drawImage(img, 0, 0);
+
+                // Зберігаємо недоторканий стан
+                originalImageData = mCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+                history = [mCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height)];
+
+                dropArea.style.display = 'none';
+                canvasWrapper.style.display = 'block';
+                editorSidebar.style.display = 'flex';
+                exportBar.style.display = 'flex';
+                exifBanner.style.display = 'flex';
+
+                exifResolution.textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+                if (exifInfo.hasGps || exifInfo.hasCamera) {
+                    exifStatus.innerHTML = `<span class="exif-warn">⚠️ Знайдено метадані: ${exifInfo.details}. Буде очищено на 100%!</span>`;
+                } else {
+                    exifStatus.innerHTML = `<span>✅ Метадані чисті або відсутні (безпечно).</span>`;
+                }
+
+                renderFinalComposition();
+                URL.revokeObjectURL(objectUrl);
+            };
+            img.src = objectUrl;
+        }
+
+        // Швидкий бінарний сканер EXIF-тегів (TIFF / JPEG)
+        function inspectExifData(buffer) {
+            const view = new DataView(buffer);
+            if (view.getUint16(0, false) !== 0xFFD8) return { hasGps: false, hasCamera: false, details: 'Не JPEG' };
+
+            let length = view.byteLength, offset = 2;
+            let hasGps = false, hasCamera = false;
+            let tags = [];
+
+            while (offset < length) {
+                if (view.getUint16(offset, false) === 0xFFE1) { // APP1 маркер EXIF
+                    const str = String.fromCharCode(view.getUint8(offset + 4), view.getUint8(offset + 5), view.getUint8(offset + 6), view.getUint8(offset + 7));
+                    if (str === 'Exif') {
+                        hasCamera = true;
+                        tags.push('Камера/Час');
+                        // Перевірка наявності GPS-підблоку
+                        for (let i = offset; i < offset + 2000 && i < length - 4; i++) {
+                            if (view.getUint16(i, false) === 0x8825) { // GPSInfo Tag
+                                hasGps = true;
+                                tags.push('GPS координати');
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+                offset += 2 + view.getUint16(offset + 2, false);
+            }
+            return { hasGps, hasCamera, details: tags.join(', ') || 'Стандартні мітки' };
+        }
+
+        // ========================================================
+        // 5. РЕНДЕРИНГ КОМПОЗИЦІЇ (ШАБЛОНИ, ТІНЬ, ГЕРБ, e-Ukraine)
+        // ========================================================
+        const templateType = document.getElementById('templateType');
+        const bgScale = document.getElementById('bgScale');
+        const bgX = document.getElementById('bgX');
+        const bgY = document.getElementById('bgY');
+        const resetBgBtn = document.getElementById('resetBgBtn');
+        const showLogoCheckbox = document.getElementById('showLogoCheckbox');
+        const logoScale = document.getElementById('logoScale');
+        const logoPosition = document.getElementById('logoPosition');
+        const overlayOpacity = document.getElementById('overlayOpacity');
+        const mainText = document.getElementById('mainText');
+        const subText = document.getElementById('subText');
+        const fontSizeTitle = document.getElementById('fontSizeTitle');
+
+        [templateType, bgScale, bgX, bgY, showLogoCheckbox, logoScale, logoPosition, overlayOpacity, mainText, subText, fontSizeTitle].forEach(el => {
+            el.addEventListener('input', renderFinalComposition);
+            el.addEventListener('change', renderFinalComposition);
+        });
+
+        resetBgBtn.addEventListener('click', () => {
+            bgScale.value = 100;
+            bgX.value = 0;
+            bgY.value = 0;
+            renderFinalComposition();
+        });
+
+        function renderFinalComposition() {
+            if (!maskCanvas.width) return;
+
+            const t = templateType.value;
+            let targetW = maskCanvas.width;
+            let targetH = maskCanvas.height;
+
+            if (t === 'social') { targetW = 1080; targetH = 1080; }
+            else if (t === 'insta') { targetW = 1080; targetH = 1350; }
+            else if (t === 'twitter') { targetW = 1920; targetH = 1080; }
+            else if (t === 'web') { targetW = 1600; targetH = 1200; }
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+            overlay.width = targetW;
+            overlay.height = targetH;
+
+            // Якщо режим "оригінал" і активна вкладка OpSec — малюємо безпосередньо маскування
+            if (t === 'original') {
+                ctx.drawImage(maskCanvas, 0, 0);
+                if (showLogoCheckbox.checked && !brandPanel.classList.contains('hidden')) {
+                    drawLogoOverlay(targetW, targetH);
+                }
+                return;
+            }
+
+            // Фонова підкладка
+            ctx.fillStyle = "#0c1322";
+            ctx.fillRect(0, 0, targetW, targetH);
+
+            // Малювання фото з урахуванням Zoom/Pan (Cover логіка)
+            const ratioCanvas = targetW / targetH;
+            const ratioImg = maskCanvas.width / maskCanvas.height;
+            let baseScale = (ratioImg > ratioCanvas) ? (targetH / maskCanvas.height) : (targetW / maskCanvas.width);
+
+            const scale = baseScale * (parseInt(bgScale.value, 10) / 100);
+            const w = maskCanvas.width * scale;
+            const h = maskCanvas.height * scale;
+            const x = (targetW - w) / 2 + parseInt(bgX.value, 10);
+            const y = (targetH - h) / 2 + parseInt(bgY.value, 10);
+
+            ctx.drawImage(maskCanvas, x, y, w, h);
+
+            // Градієнтна контрастна тінь знизу
+            const op = parseInt(overlayOpacity.value, 10) / 100;
+            if (op > 0) {
+                const grad = ctx.createLinearGradient(0, targetH * 0.4, 0, targetH);
+                grad.addColorStop(0, 'rgba(0,0,0,0)');
+                grad.addColorStop(1, `rgba(0,0,0,${op})`);
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, targetW, targetH);
+            }
+
+            // Накладання Герба Держспецзв'язку
+            if (showLogoCheckbox.checked) {
+                drawLogoOverlay(targetW, targetH);
+            }
+
+            // Текстовий блок e-Ukraine
+            drawTextElements(targetW, targetH);
+        }
+
+        function drawLogoOverlay(cw, ch) {
+            const s = parseInt(logoScale.value, 10);
+            const pos = logoPosition.value;
+            const margin = Math.round(cw * 0.04);
+
+            let lx = margin, ly = margin;
+            if (pos === 'tr') { lx = cw - s - margin; ly = margin; }
+            else if (pos === 'br') { lx = cw - s - margin; ly = ch - s - margin; }
+
+            ctx.drawImage(logoImg, lx, ly, s, s);
+        }
+
+        function drawTextElements(cw, ch) {
+            const sideMargin = Math.round(cw * 0.045);
+            const bottomMargin = Math.round(ch * 0.06);
+            let curY = ch - bottomMargin;
+            const maxWidth = cw - (sideMargin * 2);
+
+            // Підпис (e-Ukraine)
+            const sub = subText.value.trim();
+            if (sub) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+                const subSize = Math.max(16, Math.round(cw * 0.024));
+                ctx.font = `400 ${subSize}px 'e-Ukraine', 'Montserrat', sans-serif`;
+                ctx.textAlign = "left";
+                const subLines = getLines(ctx, sub, maxWidth);
+                [...subLines].reverse().forEach(line => {
+                    ctx.fillText(line, sideMargin, curY);
+                    curY -= (subSize * 1.4);
+                });
+                curY -= 12;
+            }
+
+            // Заголовок (e-Ukraine-Head)
+            const main = mainText.value.trim();
+            if (main) {
+                ctx.fillStyle = "#FFFFFF";
+                const titleSize = parseInt(fontSizeTitle.value, 10);
+                ctx.font = `700 ${titleSize}px 'e-Ukraine-Head', 'Montserrat', sans-serif`;
+                ctx.textAlign = "left";
+                const titleLines = getLines(ctx, main.toUpperCase(), maxWidth);
+                [...titleLines].reverse().forEach(line => {
+                    ctx.fillText(line, sideMargin, curY);
+                    curY -= (titleSize * 1.25);
+                });
+            }
+        }
+
+        function getLines(context, text, maxWidth) {
+            const words = text.split(" ");
+            const lines = [];
+            let currentLine = words[0];
+
+            for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                const width = context.measureText(currentLine + " " + word).width;
+                if (width < maxWidth) currentLine += " " + word;
+                else { lines.push(currentLine); currentLine = word; }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        // ========================================================
+        // 6. OPSEC МАСКУВАННЯ ТА ЛОКАЛЬНИЙ AI BLAZEFACE
+        // ========================================================
+        const aiFaceBtn = document.getElementById('aiFaceBtn');
+        const compareBtn = document.getElementById('compareBtn');
+        const strengthSlider = document.getElementById('strengthSlider');
+        const strengthVal = document.getElementById('strengthVal');
+        const stampSelect = document.getElementById('stampSelect');
+        const fillColorPicker = document.getElementById('fillColorPicker');
+
+        strengthSlider.addEventListener('input', () => strengthVal.textContent = strengthSlider.value);
+
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                stampSelect.style.display = (currentMode === 'stamp') ? 'block' : 'none';
+                fillColorPicker.style.display = (currentMode === 'colorfill') ? 'block' : 'none';
+            });
+        });
+
+        document.querySelectorAll('.shape-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentShape = btn.dataset.shape;
+            });
+        });
+
+        // AI Детектор облич
+        aiFaceBtn.addEventListener('click', async () => {
+            if (!maskCanvas.width) return;
+            const originalText = aiFaceBtn.innerHTML;
+            aiFaceBtn.innerHTML = '⏳ AI аналізує кадр...';
+            aiFaceBtn.disabled = true;
+
+            try {
+                let detectedFaces = [];
+
+                // 1. Апаратний браузерний FaceDetector
+                if ('FaceDetector' in window) {
+                    try {
+                        const fd = new window.FaceDetector({ fastMode: false, maxDetectedFaces: 30 });
+                        const faces = await fd.detect(maskCanvas);
+                        if (faces && faces.length > 0) {
+                            detectedFaces = faces.map(f => ({ x: f.boundingBox.x, y: f.boundingBox.y, w: f.boundingBox.width, h: f.boundingBox.height }));
+                        }
+                    } catch (e) { console.warn('Native FaceDetector error:', e); }
+                }
+
+                // 2. TensorFlow BlazeFace Fallback
+                if (detectedFaces.length === 0 && window.blazeface) {
+                    if (!blazeModel) blazeModel = await window.blazeface.load();
+                    const predictions = await blazeModel.estimateFaces(maskCanvas, false);
+                    if (predictions && predictions.length > 0) {
+                        detectedFaces = predictions.map(p => ({
+                            x: p.topLeft[0],
+                            y: p.topLeft[1],
+                            w: p.bottomRight[0] - p.topLeft[0],
+                            h: p.bottomRight[1] - p.topLeft[1]
+                        }));
+                    }
+                }
+
+                if (detectedFaces.length === 0) {
+                    alert('Облич не виявлено. Виділіть потрібну область вручну пензлем або еліпсом.');
+                } else {
+                    detectedFaces.forEach(f => {
+                        const px = f.w * 0.25;
+                        const py = f.h * 0.3;
+                        applyEffectToMaskCanvas(
+                            Math.max(0, f.x - px),
+                            Math.max(0, f.y - py * 0.8),
+                            Math.min(maskCanvas.width - f.x + px, f.w + px * 2),
+                            Math.min(maskCanvas.height - f.y + py, f.h + py * 2),
+                            'ellipse'
+                        );
+                    });
+                    pushHistory();
+                    renderFinalComposition();
+                }
+            } catch (err) {
+                alert('Помилка локального ШІ: ' + err.message);
+            } finally {
+                aiFaceBtn.innerHTML = originalText;
+                aiFaceBtn.disabled = false;
+            }
+        });
+
+        // Інтерактивне малювання на полотні
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!opsecPanel.classList.contains('hidden') === false) return;
+            isDrawing = true;
+            const c = getCanvasCoords(e);
+            startX = c.x; startY = c.y;
+            brushPoints = [{ x: startX, y: startY }];
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const c = getCanvasCoords(e);
+            oCtx.clearRect(0, 0, overlay.width, overlay.height);
+
+            const x = Math.min(startX, c.x);
+            const y = Math.min(startY, c.y);
+            const w = Math.abs(c.x - startX);
+            const h = Math.abs(c.y - startY);
+
+            if (currentShape === 'brush') {
+                brushPoints.push({ x: c.x, y: c.y });
+                oCtx.strokeStyle = 'rgba(0, 91, 187, 0.8)';
+                oCtx.lineWidth = Math.max(8, parseInt(strengthSlider.value, 10) * 1.5);
+                oCtx.lineCap = 'round';
+                oCtx.beginPath();
+                oCtx.moveTo(brushPoints[0].x, brushPoints[0].y);
+                for (let i = 1; i < brushPoints.length; i++) oCtx.lineTo(brushPoints[i].x, brushPoints[i].y);
+                oCtx.stroke();
+                return;
+            }
+
+            oCtx.strokeStyle = '#005BBB';
+            oCtx.lineWidth = 2;
+            oCtx.setLineDash([6, 6]);
+            oCtx.beginPath();
+            if (currentShape === 'rect') oCtx.rect(x, y, w, h);
+            else if (currentShape === 'ellipse') oCtx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+            oCtx.stroke();
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            oCtx.clearRect(0, 0, overlay.width, overlay.height);
+
+            const c = getCanvasCoords(e);
+            const x = Math.min(startX, c.x);
+            const y = Math.min(startY, c.y);
+            const w = Math.abs(c.x - startX);
+            const h = Math.abs(c.y - startY);
+
+            // Переведення координат із екранного полотна на оригінальне maskCanvas
+            const map = mapScreenCoordsToImage(x, y, w, h);
+
+            if (currentShape === 'brush' && brushPoints.length > 1) {
+                applyBrushToMask();
+            } else if (map.w > 4 && map.h > 4) {
+                applyEffectToMaskCanvas(map.x, map.y, map.w, map.h, currentShape);
+                pushHistory();
+                renderFinalComposition();
+            }
+        });
+
+        function mapScreenCoordsToImage(sx, sy, sw, sh) {
+            if (templateType.value === 'original') return { x: sx, y: sy, w: sw, h: sh };
+
+            const ratioCanvas = canvas.width / canvas.height;
+            const ratioImg = maskCanvas.width / maskCanvas.height;
+            let baseScale = (ratioImg > ratioCanvas) ? (canvas.height / maskCanvas.height) : (canvas.width / maskCanvas.width);
+            const scale = baseScale * (parseInt(bgScale.value, 10) / 100);
+
+            const originX = (canvas.width - maskCanvas.width * scale) / 2 + parseInt(bgX.value, 10);
+            const originY = (canvas.height - maskCanvas.height * scale) / 2 + parseInt(bgY.value, 10);
+
+            return {
+                x: (sx - originX) / scale,
+                y: (sy - originY) / scale,
+                w: sw / scale,
+                h: sh / scale
+            };
+        }
+
+        function applyEffectToMaskCanvas(x, y, w, h, shape) {
+            const strength = parseInt(strengthSlider.value, 10);
+            mCtx.save();
+
+            // Створення контуру
+            mCtx.beginPath();
+            if (shape === 'rect') mCtx.rect(x, y, w, h);
+            else mCtx.ellipse(x + w/2, y + h/2, Math.max(1, w/2), Math.max(1, h/2), 0, 0, Math.PI * 2);
+
+            if (currentMode === 'tape') { // Стрічка "ЦЕНЗУРА"
+                mCtx.fillStyle = "#000000";
+                mCtx.fill();
+                mCtx.strokeStyle = "#ffd861";
+                mCtx.lineWidth = Math.max(2, w * 0.02);
+                mCtx.stroke();
+                mCtx.fillStyle = "#ffffff";
+                mCtx.font = `700 ${Math.max(12, Math.floor(h * 0.4))}px sans-serif`;
+                mCtx.textAlign = "center";
+                mCtx.textBaseline = "middle";
+                mCtx.fillText("ЦЕНЗУРА", x + w/2, y + h/2);
+            } else if (currentMode === 'colorfill') {
+                mCtx.fillStyle = fillColorPicker.value;
+                mCtx.fill();
+            } else if (currentMode === 'stamp') {
+                mCtx.clip();
+                const text = stampSelect.value;
+                mCtx.font = `${Math.floor(Math.min(w, h) * 0.6)}px sans-serif`;
+                mCtx.textAlign = "center";
+                mCtx.textBaseline = "middle";
+                mCtx.fillText(text, x + w/2, y + h/2);
+            } else if (currentMode === 'pixelate') {
+                mCtx.clip();
+                const blockSize = Math.max(3, Math.floor(strength * (maskCanvas.width / 800)));
+                const off = document.createElement('canvas');
+                off.width = Math.max(1, Math.floor(w / blockSize));
+                off.height = Math.max(1, Math.floor(h / blockSize));
+                off.getContext('2d').drawImage(maskCanvas, x, y, w, h, 0, 0, off.width, off.height);
+                mCtx.imageSmoothingEnabled = false;
+                mCtx.drawImage(off, 0, 0, off.width, off.height, x, y, w, h);
+                mCtx.imageSmoothingEnabled = true;
+            } else if (currentMode === 'noise') { // Anti-AI Grain & Random noise
+                mCtx.clip();
+                const imgData = mCtx.getImageData(x, y, w, h);
+                const d = imgData.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    const n = (Math.random() - 0.5) * 110;
+                    d[i] = Math.min(255, Math.max(0, d[i] + n));
+                    d[i+1] = Math.min(255, Math.max(0, d[i+1] + n));
+                    d[i+2] = Math.min(255, Math.max(0, d[i+2] + n));
+                }
+                mCtx.putImageData(imgData, x, y);
+            } else if (currentMode === 'blur') {
+                mCtx.clip();
+                const blurRadius = Math.max(4, Math.floor(strength * (maskCanvas.width / 700)));
+                const bCanvas = document.createElement('canvas');
+                bCanvas.width = w; bCanvas.height = h;
+                const bCtx = bCanvas.getContext('2d');
+                bCtx.filter = `blur(${blurRadius}px)`;
+                bCtx.drawImage(maskCanvas, -x, -y);
+                mCtx.drawImage(bCanvas, x, y);
+            }
+            mCtx.restore();
+        }
+
+        function applyBrushToMask() {
+            mCtx.save();
+            const bWidth = Math.max(6, parseInt(strengthSlider.value, 10) * 1.5);
+            mCtx.lineWidth = bWidth;
+            mCtx.lineCap = 'round';
+            mCtx.lineJoin = 'round';
+            mCtx.strokeStyle = (currentMode === 'colorfill') ? fillColorPicker.value : '#000000';
+
+            mCtx.beginPath();
+            const start = mapScreenCoordsToImage(brushPoints[0].x, brushPoints[0].y, 0, 0);
+            mCtx.moveTo(start.x, start.y);
+
+            for (let i = 1; i < brushPoints.length; i++) {
+                const pt = mapScreenCoordsToImage(brushPoints[i].x, brushPoints[i].y, 0, 0);
+                mCtx.lineTo(pt.x, pt.y);
+            }
+            mCtx.stroke();
+            mCtx.restore();
+
+            pushHistory();
+            renderFinalComposition();
+        }
+
+        function pushHistory() {
+            history.push(mCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height));
+            if (history.length > 20) history.shift();
+        }
+
+        document.getElementById('undoBtn').addEventListener('click', () => {
+            if (history.length > 1) {
+                history.pop();
+                const state = history[history.length - 1];
+                mCtx.putImageData(state, 0, 0);
+                renderFinalComposition();
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (originalImageData && confirm('Скинути всі внесені зміни цензури?')) {
+                mCtx.putImageData(originalImageData, 0, 0);
+                history = [mCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height)];
+                renderFinalComposition();
+            }
+        });
+
+        // Порівняння "До / Після"
+        compareBtn.addEventListener('mousedown', showOriginalPreview);
+        compareBtn.addEventListener('mouseup', restoreCurrentPreview);
+        window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'TEXTAREA') showOriginalPreview(); });
+        window.addEventListener('keyup', (e) => { if (e.code === 'Space') restoreCurrentPreview(); });
+
+        function showOriginalPreview() {
+            if (!originalImageData) return;
+            mCtx.putImageData(originalImageData, 0, 0);
+            renderFinalComposition();
+        }
+        function restoreCurrentPreview() {
+            if (!history.length) return;
+            mCtx.putImageData(history[history.length - 1], 0, 0);
+            renderFinalComposition();
+        }
+
+        // ========================================================
+        // 7. ЕКСПОРТ (КОПІЮВАННЯ ТА ЧИСТЕ ЗБЕРЕЖЕННЯ)
+        // ========================================================
+        const exportFormat = document.getElementById('exportFormat');
+        const qualitySlider = document.getElementById('qualitySlider');
+        const qualityVal = document.getElementById('qualityVal');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyClipboardBtn = document.getElementById('copyClipboardBtn');
+
+        qualitySlider.addEventListener('input', () => qualityVal.textContent = qualitySlider.value + '%');
+
+        copyClipboardBtn.addEventListener('click', () => {
+            canvas.toBlob(blob => {
+                const item = new ClipboardItem({ 'image/png': blob });
+                navigator.clipboard.write([item]).then(() => {
+                    const orig = copyClipboardBtn.textContent;
+                    copyClipboardBtn.textContent = '✅ Скопійовано!';
+                    setTimeout(() => copyClipboardBtn.textContent = orig, 1800);
+                }).catch(() => alert('Не вдалося скопіювати в буфер.'));
+            }, 'image/png');
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const format = exportFormat.value;
+            const quality = parseInt(qualitySlider.value, 10) / 100;
+            let ext = '.webp';
+            if (format === 'image/jpeg') ext = '.jpg';
+            if (format === 'image/png') ext = '.png';
+
+            const cleanName = `dsszzi_safe_${originalFileName.replace(/\.[^/.]+$/, "")}_${templateType.value}${ext}`;
+
+            canvas.toBlob(blob => {
+                const a = document.createElement('a');
+                a.download = cleanName;
+                a.href = URL.createObjectURL(blob);
+                a.click();
+                URL.revokeObjectURL(a.href);
+            }, format, quality);
+        });
+
+        // ========================================================
+        // 8. ПАКЕТНЕ ОЧИЩЕННЯ (BATCH ZIP)
+        // ========================================================
+        const batchDropArea = document.getElementById('batchDropArea');
+        const batchFileInput = document.getElementById('batchFileInput');
+        const batchFileList = document.getElementById('batchFileList');
+        const batchCount = document.getElementById('batchCount');
+        const batchDownloadBtn = document.getElementById('batchDownloadBtn');
+        let batchFiles = [];
+
+        batchDropArea.addEventListener('click', () => batchFileInput.click());
+        batchDropArea.addEventListener('dragover', (e) => { e.preventDefault(); batchDropArea.classList.add('dragover'); });
+        batchDropArea.addEventListener('dragleave', () => batchDropArea.classList.remove('dragover'));
+        batchDropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            batchDropArea.classList.remove('dragover');
+            addBatchFiles(e.dataTransfer.files);
+        });
+        batchFileInput.addEventListener('change', (e) => addBatchFiles(e.target.files));
+
+        function addBatchFiles(files) {
+            for (const file of files) {
+                if (file.type.startsWith('image/')) batchFiles.push(file);
+            }
+            updateBatchList();
+        }
+
+        function updateBatchList() {
+            batchCount.textContent = batchFiles.length;
+            batchFileList.innerHTML = '';
+            batchFiles.forEach((file, idx) => {
+                const item = document.createElement('div');
+                item.className = 'batch-item';
+                item.innerHTML = `
+                    <span>📄 ${file.name} (${(file.size / 1024).toFixed(0)} KB)</span>
+                    <button style="color:var(--danger); background:none; border:none;" onclick="removeBatchItem(${idx})">✕</button>
+                `;
+                batchFileList.appendChild(item);
+            });
+            batchDownloadBtn.disabled = batchFiles.length === 0;
+        }
+
+        window.removeBatchItem = (idx) => {
+            batchFiles.splice(idx, 1);
+            updateBatchList();
+        };
+
+        batchDownloadBtn.addEventListener('click', async () => {
+            if (!batchFiles.length) return;
+            batchDownloadBtn.textContent = '⏳ Очищення та пакування...';
+            batchDownloadBtn.disabled = true;
+
+            const zip = new JSZip();
+
+            for (let i = 0; i < batchFiles.length; i++) {
+                const f = batchFiles[i];
+                const cleanBlob = await cleanSingleImage(f);
+                zip.file(`safe_${f.name.replace(/\.[^/.]+$/, "")}.webp`, cleanBlob);
+            }
+
+            const archive = await zip.generateAsync({ type: "blob" });
+            const link = document.createElement('a');
+            link.download = `SSSCIP_Clean_Batch_${new Date().toISOString().slice(0,10)}.zip`;
+            link.href = URL.createObjectURL(archive);
+            link.click();
+            URL.revokeObjectURL(link.href);
+
+            batchDownloadBtn.textContent = '📦 Обробити й завантажити ZIP';
+            batchDownloadBtn.disabled = false;
+        });
+
+        function cleanSingleImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    const temp = document.createElement('canvas');
+                    let tw = img.naturalWidth, th = img.naturalHeight;
+                    if (tw > 1920) {
+                        tw = 1920;
+                        th = Math.round(img.naturalHeight * (1920 / img.naturalWidth));
+                    }
+                    temp.width = tw; temp.height = th;
+                    const tc = temp.getContext('2d');
+                    tc.imageSmoothingQuality = 'high';
+                    tc.drawImage(img, 0, 0, tw, th);
+
+                    temp.toBlob(blob => {
+                        URL.revokeObjectURL(url);
+                        resolve(blob);
+                    }, 'image/webp', 0.85);
+                };
+                img.src = url;
+            });
+        }
+    </script>
+</body>
+</html>
