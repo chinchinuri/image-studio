@@ -1,11 +1,4 @@
-```markdown
-# 🛡️ OpSec Media Studio — Держспецзв'язку (SSSCIP)
-
-[![100% Client-Side](https://img.shields.io/badge/Security-100%25%20Client--Side-10b981?style=flat-square&logo=shield)](https://github.com/)
-[![Zero-Server Leak](https://img.shields.io/badge/Privacy-Zero%20Data%20Leak-005BBB?style=flat-square)](https://github.com/)
-[![MediaPipe AI](https://img.shields.io/badge/AI-MediaPipe%20Face%20Detection-8b5cf6?style=flat-square)](https://developers.google.com/mediapipe)
-[![Typography](https://img.shields.io/badge/Font-e--Ukraine-ffd861?style=flat-square)](https://diia.gov.ua/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-slate?style=flat-square)](LICENSE)
+# 🛡️ OpSec Media Studio
 
 **OpSec Media Studio** — це автономна веб-студія для пресофіцерів, комунікаційників та SMM-фахівців сектору безпеки та оборони. Інструмент об'єднує два критичні етапи підготовки медіаматеріалів в єдиний робочий процес: **надійне знеособлення (OpSec)** та **офіційне брендування для соцмереж і вебпорталів**.
 
@@ -104,4 +97,3 @@ npx serve .
 ## 📄 Ліцензія
 
 Розповсюджується під ліцензією **MIT**. Вихідний код може вільно адаптуватися та використовуватися пресслужбами, підрозділами зв'язку та військовими частинами Сил оборони України.
-```
