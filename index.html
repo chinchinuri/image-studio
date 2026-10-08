@@ -1065,7 +1065,23 @@
                 }
 
                 if (detectedFaces.length === 0 && window.blazeface) {
-                    if (!blazeModel) blazeModel = await window.blazeface.load();
+                    if (!blazeModel) {
+                        // Запобігаємо блокуванню CORS на локальному диску
+                        if (location.protocol === 'file:') {
+                            throw new Error('Браузер блокує завантаження AI-моделі через пряме відкриття файлу (file://). Запустіть додаток через локальний веб-сервер (VS Code Live Server, "python -m http.server" або розмістіть на сервері/GitHub Pages).');
+                        }
+                        
+                        // Спроба завантаження моделі
+                        try {
+                            blazeModel = await window.blazeface.load({
+                                modelUrl: 'https://storage.googleapis.com/tfhub-tfjs-modules/tensorflow/tfjs-model/blazeface/1/default/1/model.json'
+                            });
+                        } catch (e) {
+                            // Резервна спроба завантаження за стандартним маршрутом
+                            blazeModel = await window.blazeface.load();
+                        }
+                    }
+
                     const predictions = await blazeModel.estimateFaces(maskCanvas, false);
                     if (predictions && predictions.length > 0) {
                         detectedFaces = predictions.map(p => ({
