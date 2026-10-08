@@ -9,8 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Локальний AI (TensorFlow.js + BlazeFace) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/tracking-min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/data/face-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4.1646425229/face_detection.js"></script>
     <!-- JSZip для пакетного експорту -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
@@ -1045,6 +1044,9 @@
             });
         });
 
+        // Змінна для зберігання ініціалізованої моделі
+let mpFaceDetector = null;
+
         aiFaceBtn.addEventListener('click', async () => {
             if (!maskCanvas.width) return;
             const originalText = aiFaceBtn.innerHTML;
@@ -1054,58 +1056,62 @@
             try {
                 let detectedFaces = [];
 
-                // 1. Апаратний детектор браузера (якщо підтримується системою)
+                // 1. Спроба апаратного FaceDetector браузера
                 if ('FaceDetector' in window) {
                     try {
                         const fd = new window.FaceDetector({ fastMode: false, maxDetectedFaces: 30 });
                         const faces = await fd.detect(maskCanvas);
                         if (faces && faces.length > 0) {
-                            detectedFaces = faces.map(f => ({ 
-                                x: f.boundingBox.x, 
-                                y: f.boundingBox.y, 
-                                w: f.boundingBox.width, 
-                                h: f.boundingBox.height 
+                            detectedFaces = faces.map(f => ({
+                                x: f.boundingBox.x,
+                                y: f.boundingBox.y,
+                                w: f.boundingBox.width,
+                                h: f.boundingBox.height
                             }));
                         }
-                    } catch (e) { console.warn('Native FaceDetector:', e); }
+                    } catch (e) {
+                        console.warn('Native FaceDetector:', e);
+                    }
                 }
 
-                // 2. Автономний вбудований детектор (100% офлайн, без мережевих запитів fetch)
-                if (detectedFaces.length === 0 && typeof tracking !== 'undefined') {
-                    const maxDim = 800; // Оптимізація швидкості для великих фото
-                    let scale = 1;
-                    let dw = maskCanvas.width, dh = maskCanvas.height;
-
-                    if (dw > maxDim || dh > maxDim) {
-                        scale = maxDim / Math.max(dw, dh);
-                        dw = Math.round(dw * scale);
-                        dh = Math.round(dh * scale);
+                // 2. Нейромережа MediaPipe (висока точність і стабільність)
+                if (detectedFaces.length === 0 && window.FaceDetection) {
+                    if (!mpFaceDetector) {
+                        mpFaceDetector = new window.FaceDetection({
+                            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4.1646425229/${file}`
+                        });
+                        mpFaceDetector.setOptions({
+                            model: 'short',          // Швидка та точна модель для фотографій
+                            minDetectionConfidence: 0.5
+                        });
+                        await mpFaceDetector.initialize();
                     }
 
-                    const tempC = document.createElement('canvas');
-                    tempC.width = dw; tempC.height = dh;
-                    const tCtx = tempC.getContext('2d');
-                    tCtx.drawImage(maskCanvas, 0, 0, dw, dh);
-                    const imgData = tCtx.getImageData(0, 0, dw, dh);
+                    // Отримуємо результати сканування
+                    const results = await new Promise((resolve) => {
+                        mpFaceDetector.onResults((res) => resolve(res.detections || []));
+                        mpFaceDetector.send({ image: maskCanvas });
+                    });
 
-                    const tracker = new tracking.ObjectTracker('face');
-                    tracker.setInitialScale(4);
-                    tracker.setStepSize(2);
-                    tracker.setEdgesDensity(0.1);
-
-                    const results = tracker.track(imgData.data, dw, dh);
                     if (results && results.length > 0) {
-                        detectedFaces = results.map(r => ({
-                            x: Math.round(r.x / scale),
-                            y: Math.round(r.y / scale),
-                            w: Math.round(r.width / scale),
-                            h: Math.round(r.height / scale)
-                        }));
+                        const imgW = maskCanvas.width;
+                        const imgH = maskCanvas.height;
+
+                        detectedFaces = results.map(d => {
+                            const box = d.boundingBox;
+                            return {
+                                x: Math.round(box.xCenter * imgW - (box.width * imgW) / 2),
+                                y: Math.round(box.yCenter * imgH - (box.height * imgH) / 2),
+                                w: Math.round(box.width * imgW),
+                                h: Math.round(box.height * imgH)
+                            };
+                        });
                     }
                 }
 
+                // Застосування маскування
                 if (detectedFaces.length === 0) {
-                    alert('Облич не виявлено. Виділіть область вручну пензлем або еліпсом.');
+                    alert('Облич не виявлено. Спробуйте виділити область вручну пензлем або еліпсом.');
                 } else {
                     detectedFaces.forEach(f => {
                         const px = f.w * 0.25;
@@ -1122,7 +1128,8 @@
                     renderFinalComposition();
                 }
             } catch (err) {
-                alert('Помилка детектора: ' + err.message);
+                console.error(err);
+                alert('Помилка AI: ' + err.message);
             } finally {
                 aiFaceBtn.innerHTML = originalText;
                 aiFaceBtn.disabled = false;
