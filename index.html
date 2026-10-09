@@ -1035,12 +1035,16 @@
                 drawVignette(targetW, targetH, parseInt(vignetteAmount.value, 10));
             }
 
-            // 8. Нижня градієнтна підкладка (Тінь для читабельності тексту)
+            // 8. Нижня градієнтна підкладка (Корпоративний темно-синій колір ДССЗЗІ)
             const op = parseInt(overlayOpacity.value, 10) / 100;
             if (op > 0) {
-                const grad = ctx.createLinearGradient(0, targetH * 0.45, 0, targetH);
-                grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-                grad.addColorStop(1, `rgba(0, 0, 0, ${op})`);
+                const grad = ctx.createLinearGradient(0, targetH * 0.42, 0, targetH);
+                
+                // Корпоративний темно-синій колір (RGB: 11, 24, 61)
+                grad.addColorStop(0, 'rgba(11, 24, 61, 0)');                    // Повний прозорий перехід
+                grad.addColorStop(0.55, `rgba(16, 34, 82, ${op * 0.45})`);       // М'який фірмовий синій напівтон
+                grad.addColorStop(1, `rgba(9, 19, 48, ${op})`);                 // Глибокий темно-синій біля краю
+                
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, targetW, targetH);
             }
