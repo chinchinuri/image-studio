@@ -361,6 +361,35 @@
                     </div>
                 </div>
 
+                <!-- 1. НОВИЙ БЛОК: РЕЖИМ ВМІЩЕННЯ ТА РОЗМИТИЙ ФОН -->
+                <div class="section-title">Композиція та розмитий фон</div>
+                <div class="control-card">
+                    <label style="font-size: 0.75rem;">Режим вміщення фото:</label>
+                    <select id="fitMode">
+                        <option value="cover">Обрізати під формат (Cover / Зум)</option>
+                        <option value="contain-blur" selected>Вмістити повністю + Розмитий фон</option>
+                    </select>
+                    <div id="blurBgControls">
+                        <div class="range-wrap"><span>Розмиття</span><input type="range" id="bgBlurAmount" min="0" max="60" value="25"></div>
+                        <div class="range-wrap"><span>Затемнення</span><input type="range" id="bgDimAmount" min="0" max="80" value="30"></div>
+                    </div>
+                </div>
+
+                <!-- 2. НОВИЙ БЛОК: КОЛЬОРОКОРЕКЦІЯ ТА РІЗКІСТЬ -->
+                <div class="section-title">Кольорокорекція</div>
+                <div class="control-card">
+                    <div class="range-wrap"><span>Яскравість</span><input type="range" id="adjBrightness" min="60" max="140" value="100"></div>
+                    <div class="range-wrap"><span>Контраст</span><input type="range" id="adjContrast" min="60" max="140" value="100"></div>
+                    <div class="range-wrap"><span>Насиченість</span><input type="range" id="adjSaturation" min="0" max="200" value="100"></div>
+                    <div class="range-wrap"><span>Різкість</span><input type="range" id="adjSharpen" min="0" max="100" value="0"></div>
+                </div>
+
+                <!-- 3. НОВИЙ БЛОК: ВІНЬЄТКА -->
+                <div class="section-title">Віньєтка (Затемнення кутків)</div>
+                <div class="control-card">
+                    <div class="range-wrap"><span>Інтенсивність</span><input type="range" id="vignetteAmount" min="0" max="100" value="0"></div>
+                </div>
+
                 <!-- СЕКЦІЯ 2: МАКЕТ, БРЕНДУВАННЯ ТА SMM -->
                 <div id="brandPanel" class="hidden">
                     <div class="section-title">Формат публікації</div>
@@ -695,6 +724,15 @@
         const maskCanvas = document.createElement('canvas');
         const mCtx = maskCanvas.getContext('2d');
 
+        const fitMode = document.getElementById('fitMode');
+        const bgBlurAmount = document.getElementById('bgBlurAmount');
+        const bgDimAmount = document.getElementById('bgDimAmount');
+        const adjBrightness = document.getElementById('adjBrightness');
+        const adjContrast = document.getElementById('adjContrast');
+        const adjSaturation = document.getElementById('adjSaturation');
+        const adjSharpen = document.getElementById('adjSharpen');
+        const vignetteAmount = document.getElementById('vignetteAmount');
+
         // ========================================================
         // 3. НАВІГАЦІЯ
         // ========================================================
@@ -840,7 +878,12 @@
         const footerScale = document.getElementById('footerScale');
         const footerBottomMargin = document.getElementById('footerBottomMargin');
 
-        [templateType, bgScale, bgX, bgY, showLogoCheckbox, logoScale, logoPosition, overlayOpacity, mainText, subText, fontSizeTitle, footerScale, footerBottomMargin].forEach(el => {
+        [
+            templateType, bgScale, bgX, bgY, showLogoCheckbox, logoScale, logoPosition, 
+            overlayOpacity, mainText, subText, fontSizeTitle, footerScale, footerBottomMargin,
+            fitMode, bgBlurAmount, bgDimAmount, adjBrightness, adjContrast, adjSaturation, adjSharpen, vignetteAmount
+        ].forEach(el => {
+            if (!el) return;
             el.addEventListener('input', () => {
                 if (el === templateType) handleTemplateTypeChange();
                 else renderFinalComposition();
@@ -871,65 +914,148 @@
         }
 
         function renderFinalComposition() {
-            if (!maskCanvas.width) return;
+            // 1. Перевірка наявності завантаженого зображення
+            if (!maskCanvas.width || maskCanvas.width === 0) return;
 
+            // 2. Визначення розмірів полотна залежно від обраного шаблону
             const t = templateType.value;
             let targetW = maskCanvas.width;
             let targetH = maskCanvas.height;
 
-            if (t === 'social') { targetW = 1080; targetH = 1080; }
-            else if (t === 'insta') { targetW = 1080; targetH = 1350; }
-            else if (t === 'twitter') { targetW = 1920; targetH = 1080; }
-            else if (t === 'web') { targetW = 1600; targetH = 1200; }
+            if (t === 'social') { targetW = 1080; targetH = 1080; }       // Telegram / FB (1:1)
+            else if (t === 'insta') { targetW = 1080; targetH = 1350; }    // Instagram (4:5)
+            else if (t === 'twitter') { targetW = 1920; targetH = 1080; }  // Twitter / YouTube (16:9)
+            else if (t === 'web') { targetW = 1600; targetH = 1200; }      // Офіційний сайт ДССЗЗІ
 
+            // Оновлюємо розміри робочого полотна та шару виділення
             canvas.width = targetW;
             canvas.height = targetH;
             overlay.width = targetW;
             overlay.height = targetH;
 
+            // 3. Формування рядка фільтрів кольорокорекції
+            const bright = adjBrightness ? parseInt(adjBrightness.value, 10) : 100;
+            const cont = adjContrast ? parseInt(adjContrast.value, 10) : 100;
+            const sat = adjSaturation ? parseInt(adjSaturation.value, 10) : 100;
+            const colorFilter = `brightness(${bright}%) contrast(${cont}%) saturate(${sat}%)`;
+
+            // 4. Якщо обрано режим "Оригінал" — малюємо без кадрування та виходимо
             if (t === 'original') {
+                ctx.save();
+                ctx.filter = colorFilter;
                 ctx.drawImage(maskCanvas, 0, 0);
+                ctx.restore();
+
+                // Застосування різкості та віньєтки за потреби
+                if (adjSharpen && parseInt(adjSharpen.value, 10) > 0) {
+                    applySharpenFilter(targetW, targetH, parseInt(adjSharpen.value, 10));
+                }
+                if (vignetteAmount && parseInt(vignetteAmount.value, 10) > 0) {
+                    drawVignette(targetW, targetH, parseInt(vignetteAmount.value, 10));
+                }
                 return;
             }
 
-            // Заливка фонового простору
+            // Базова заливка фонового полотна
             ctx.fillStyle = "#0c1322";
             ctx.fillRect(0, 0, targetW, targetH);
 
-            // Cover масштабування фонового зображення
-            const ratioCanvas = targetW / targetH;
-            const ratioImg = maskCanvas.width / maskCanvas.height;
-            let baseScale = (ratioImg > ratioCanvas) ? (targetH / maskCanvas.height) : (targetW / maskCanvas.width);
+            // 5. Відмальовування фото: вибір між Cover та Contain з розмитим фоном
+            const currentFit = fitMode ? fitMode.value : 'cover';
 
-            const scale = baseScale * (parseInt(bgScale.value, 10) / 100);
-            const w = maskCanvas.width * scale;
-            const h = maskCanvas.height * scale;
-            const x = (targetW - w) / 2 + parseInt(bgX.value, 10);
-            const y = (targetH - h) / 2 + parseInt(bgY.value, 10);
+            if (currentFit === 'contain-blur') {
+                // --- ШАР 1 (ФОН): Розтягнута розмита копія фотографії (Cover) ---
+                ctx.save();
+                const blurPx = bgBlurAmount ? parseInt(bgBlurAmount.value, 10) : 25;
+                ctx.filter = (blurPx > 0) ? `${colorFilter} blur(${blurPx}px)` : colorFilter;
 
-            ctx.drawImage(maskCanvas, x, y, w, h);
+                const ratioCanvas = targetW / targetH;
+                const ratioImg = maskCanvas.width / maskCanvas.height;
+                let bgBaseScale = (ratioImg > ratioCanvas) ? (targetH / maskCanvas.height) : (targetW / maskCanvas.width);
 
-            // Тінь знизу для контрасту
+                const bgW = maskCanvas.width * bgBaseScale;
+                const bgH = maskCanvas.height * bgBaseScale;
+                ctx.drawImage(maskCanvas, (targetW - bgW) / 2, (targetH - bgH) / 2, bgW, bgH);
+                ctx.restore();
+
+                // Затемнення розмитого фону для контрасту
+                const dim = bgDimAmount ? parseInt(bgDimAmount.value, 10) / 100 : 0.3;
+                if (dim > 0) {
+                    ctx.fillStyle = `rgba(0, 0, 0, ${dim})`;
+                    ctx.fillRect(0, 0, targetW, targetH);
+                }
+
+                // --- ШАР 2 (ПЕРЕДНІЙ ПЛАН): Повне фото без обрізки (Contain) ---
+                ctx.save();
+                ctx.filter = colorFilter;
+
+                let fgScale = (ratioImg > ratioCanvas) ? (targetW / maskCanvas.width) : (targetH / maskCanvas.height);
+                fgScale *= (parseInt(bgScale.value, 10) / 100);
+
+                const fgW = maskCanvas.width * fgScale;
+                const fgH = maskCanvas.height * fgScale;
+                const fgX = (targetW - fgW) / 2 + parseInt(bgX.value, 10);
+                const fgY = (targetH - fgH) / 2 + parseInt(bgY.value, 10);
+
+                // М'яка об'ємна тінь під основним знімком
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+                ctx.shadowBlur = 30;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 8;
+
+                ctx.drawImage(maskCanvas, fgX, fgY, fgW, fgH);
+                ctx.restore();
+
+            } else {
+                // --- ЗВИЧАЙНИЙ РЕЖИМ COVER: Зум та кадрування під межі кадру ---
+                ctx.save();
+                ctx.filter = colorFilter;
+
+                const ratioCanvas = targetW / targetH;
+                const ratioImg = maskCanvas.width / maskCanvas.height;
+                let baseScale = (ratioImg > ratioCanvas) ? (targetH / maskCanvas.height) : (targetW / maskCanvas.width);
+
+                const scale = baseScale * (parseInt(bgScale.value, 10) / 100);
+                const w = maskCanvas.width * scale;
+                const h = maskCanvas.height * scale;
+                const x = (targetW - w) / 2 + parseInt(bgX.value, 10);
+                const y = (targetH - h) / 2 + parseInt(bgY.value, 10);
+
+                ctx.drawImage(maskCanvas, x, y, w, h);
+                ctx.restore();
+            }
+
+            // 6. Застосування підвищення різкості (Sharpen)
+            if (adjSharpen && parseInt(adjSharpen.value, 10) > 0) {
+                applySharpenFilter(targetW, targetH, parseInt(adjSharpen.value, 10));
+            }
+
+            // 7. Накладання віньєтки (затемнення кутків)
+            if (vignetteAmount && parseInt(vignetteAmount.value, 10) > 0) {
+                drawVignette(targetW, targetH, parseInt(vignetteAmount.value, 10));
+            }
+
+            // 8. Нижня градієнтна підкладка (Тінь для читабельності тексту)
             const op = parseInt(overlayOpacity.value, 10) / 100;
             if (op > 0) {
                 const grad = ctx.createLinearGradient(0, targetH * 0.45, 0, targetH);
-                grad.addColorStop(0, 'rgba(0,0,0,0)');
-                grad.addColorStop(1, `rgba(0,0,0,${op})`);
+                grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                grad.addColorStop(1, `rgba(0, 0, 0, ${op})`);
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, targetW, targetH);
             }
 
-            // 1. РЕЖИМ САЙТУ: Тільки центрована плашка знизу, БЕЗ логотипу в кутку
+            // 9. Оформлення залежно від режиму
             if (t === 'web') {
+                // РЕЖИМ САЙТУ: Тільки центрована плашка новин знизу (без кутового герба та тексту соцмереж)
                 drawWebBanner(targetW, targetH);
-                return;
+            } else {
+                // РЕЖИМИ СОЦМЕРЕЖ: Кутовий герб ДССЗЗІ та текстовий блок e-Ukraine
+                if (showLogoCheckbox && showLogoCheckbox.checked) {
+                    drawLogoOverlay(targetW, targetH);
+                }
+                drawTextElements(targetW, targetH);
             }
-
-            // 2. РЕЖИМИ СОЦМЕРЕЖ: Логотип у кутку та текстові блоки e-Ukraine
-            if (showLogoCheckbox.checked) {
-                drawLogoOverlay(targetW, targetH);
-            }
-            drawTextElements(targetW, targetH);
         }
 
         // Малювання нижньої плашки сайту з центруванням по X
@@ -1496,6 +1622,48 @@ let mpFaceDetector = null;
             document.fonts.ready.then(() => {
                 renderFinalComposition();
             });
+        }
+        // Функція кінематографічної віньєтки (радіальний градієнт)
+        function drawVignette(cw, ch, amount) {
+            ctx.save();
+            const outerRadius = Math.sqrt((cw / 2) ** 2 + (ch / 2) ** 2);
+            const innerRadius = outerRadius * 0.45;
+
+            const grad = ctx.createRadialGradient(cw / 2, ch / 2, innerRadius, cw / 2, ch / 2, outerRadius);
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            grad.addColorStop(1, `rgba(0, 0, 0, ${amount / 100})`);
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.restore();
+        }
+
+        // Функція швидкого підвищення різкості (Convolution Matrix)
+        function applySharpenFilter(cw, ch, amount) {
+            const weight = amount / 100 * 0.4;
+            if (weight <= 0) return;
+
+            const imgData = ctx.getImageData(0, 0, cw, ch);
+            const d = imgData.data;
+            const w = cw, h = ch;
+            const buff = new Uint8ClampedArray(d);
+
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    const idx = (y * w + x) * 4;
+                    for (let c = 0; c < 3; c++) {
+                        const center = buff[idx + c];
+                        const up = buff[((y - 1) * w + x) * 4 + c];
+                        const down = buff[((y + 1) * w + x) * 4 + c];
+                        const left = buff[(y * w + (x - 1)) * 4 + c];
+                        const right = buff[(y * w + (x + 1)) * 4 + c];
+
+                        const sharpVal = center * (1 + 4 * weight) - (up + down + left + right) * weight;
+                        d[idx + c] = Math.min(255, Math.max(0, sharpVal));
+                    }
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
         }
     </script>
 </body>
